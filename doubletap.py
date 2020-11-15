@@ -198,6 +198,7 @@ def gobuster_ssl(ip_address, port, url_start):
     return
 
 
+## don't think this is called anywhere
 def wig(ip_address, port, url_start):
     print(f"{bcolors.HEADER}[*] Starting WIG scan for {ip_address}{bcolors.ENDC}")
     WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
@@ -208,6 +209,7 @@ def wig(ip_address, port, url_start):
     return
 
 
+## don't think this is called anywhere
 def wigssl(ip_address, port, url_start):
     print(f"{bcolors.HEADER}[*] Starting WIGSSL scan for {ip_address}{bcolors.ENDC}")
     WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
