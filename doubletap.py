@@ -213,17 +213,16 @@ def wigssl(ip_address, port, url_start):
     WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
     results_wig = subprocess.getoutput(WIGSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with WIGSSL-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_wig)
     write_to_file(ip_address, "wigssl", results_wig)
     return
 
 
+## don't think this is called anywhere
 def parsero(ip_address, port, url_start):
     print(f"{bcolors.HEADER}[*] Starting ROBOTS scan for {ip_address}{bcolors.ENDC}")
     ROBOTSSCAN = f"parsero-git -o -u {url_start}://{ip_address}:{port} | grep OK | grep -o 'http.*'  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
     results_parsero = subprocess.getoutput(ROBOTSSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with ROBOTS-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_parsero)
     write_to_file(ip_address, "parsero", results_parsero)
     return
 
@@ -233,7 +232,6 @@ def waf(ip_address, port, url_start):
     WAFSCAN = f"wafw00f {url_start}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt"
     results_waf = subprocess.getoutput(WAFSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with WAF-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_waf)
     write_to_file(ip_address, "waf", results_waf)
     return
 
@@ -243,7 +241,6 @@ def wafssl(ip_address, port, url_start):
     WAFSSLSCAN = f"wafw00f {url_start}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt"
     results_wafssl = subprocess.getoutput(WAFSSLSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with WAFSSL-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_wafssl)
     write_to_file(ip_address, "wafssl", results_wafssl)
     return
 
@@ -253,114 +250,101 @@ def nikto(ip_address, port, url_start):
     NIKTOSCAN = f"nikto -maxtime 5m -h {url_start}://{ip_address}:{port} | tee -a {dirs}{ip_address}/webapp_scans/nikto-{url_start}-{ip_address}.txt"
     results_nikto = subprocess.getoutput(NIKTOSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with NIKTO-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_nikto)
     write_to_file(ip_address, "nikto", results_nikto)
     return
 
 
+## don't think this is called anywhere
 def ssl(ip_address, port, url_start):
     print(f"{bcolors.HEADER}[*] Starting SSL scan for {ip_address}{bcolors.ENDC}")
     SSLSCAN = f"sslscan {ip_address}:{port}  |  tee {dirs}{ip_address}/webapp_scans/ssl_scan_{ip_address}"
-    #print(bcolors.HEADER + SSLSCAN + bcolors.ENDC)
     results_ssl = subprocess.getoutput(SSLSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with SSL-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_ssl)
     write_to_file(ip_address, "ssl-scan", results_ssl)
     return
 
 
-def mssqlEnum(ip_address, port):
-    #print(bcolors.HEADER + "[*] Detected MS-SQL on " + ip_address + ":" + port + bcolors.ENDC)
-    print(bcolors.HEADER + "[*] Starting MSSQL based scan for " + ip_address + ":" + port + bcolors.ENDC)
+def mssql_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting MSSQL based scan for {ip_address}:{port}")
     MSSQLSCAN = f"nmap -sV -Pn -p {port} --script=ms-sql-info,ms-sql-config,ms-sql-dump-hashes --script-args=mssql.instance-port=1433,smsql.username-sa,mssql.password-sa -oN {dirs}{ip_address}/service_scans/mssql_{ip_address}.nmap %s"
-    #print(bcolors.HEADER + MSSQLSCAN + bcolors.ENDC)
     mssql_results = subprocess.getoutput(MSSQLSCAN)
-    print(bcolors.OKGREEN + "[*] Finished with MSSQL-scan for " + ip_address + bcolors.ENDC)
-    #print(mssql_results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with MSSQL-scan for {ip_address}")
     return
 
 
-def smtpEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting SMTP based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def smtp_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SMTP based scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "smtp")
     SMTPSCAN = f"nmap -sV -Pn -p {port} --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 {ip_address} -oN {dirs}{ip_address}/service_scans/smtp_{ip_address}.nmap"
-    #print(bcolors.HEADER + SMTPSCAN + bcolors.ENDC)
     smtp_results = subprocess.getoutput(SMTPSCAN)
-    print(bcolors.OKGREEN + "[*] Finished with SMTP-scan for " + ip_address + bcolors.ENDC)
-    #print(smtp_results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SMTP-scan for {ip_address}")
     write_to_file(ip_address, "smtp-connect", smtp_results)
     return
 
 
-def smbEnum(ip_address, port):
+def smb_scan(ip_address, port):
     #print(bcolors.HEADER + "[*] Detected SMB on " + ip_address + ":" + port)
-    print(bcolors.HEADER + "[*] Starting SMB based scans for " + ip_address + ":" + port + bcolors.ENDC)
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SMB based scans for {ip_address}:{port}")
     SMBMAP = f"smbmap -H {ip_address} | tee {dirs}{ip_address}/service_scans/smbmap_{ip_address}"
     smbmap_results = subprocess.getoutput(SMBMAP)
-    print(bcolors.OKGREEN + "[*] Finished with SMBMap-scan for " + ip_address + bcolors.ENDC)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SMBMap-scan for {ip_address}")
     #print(smbmap_results)
     write_to_file(ip_address, "smbmap", smbmap_results)
     return
 
 
-def rpcEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting RPC based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def rpc_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting RPC based scan on {ip_address}:{port}")
     RPCMAP = f"enum4linux -a {ip_address}  | tee {dirs}{ip_address}/service_scans/rpcmap_{ip_address}"
     rpcmap_results = subprocess.getoutput(RPCMAP)
-    print(bcolors.OKGREEN + "[*] Finished with RPC-scan for " + ip_address + bcolors.ENDC)
-    #print(rpcmap_results)
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Finished with RPC-scan for {ip_address}")
     write_to_file(ip_address, "rpcmap", rpcmap_results)
     return
 
 
-def samrEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting SAMR based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def samr_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SAMR based scan on {ip_address}:port")
     SAMRDUMP = f"impacket-samrdump {ip_address} | tee {dirs}{ip_address}/service_scans/samrdump_{ip_address}"
     samrdump_results = subprocess.getoutput(SAMRDUMP)
-    print(bcolors.OKGREEN + "[*] Finished with SAMR-scan for " + ip_address + bcolors.ENDC)
-    #print(samrdump_results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SAMR-scan for {ip_address}")
     write_to_file(ip_address, "samrdump", samrdump_results)
     return
 
 
 def ftp_scan(ip_address, port):
-    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting FTP based scan on {ip_address}:{port}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting FTP based scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "ftp")
 
     FTPSCAN = f"nmap -sV -Pn -vv -p {port} --script=ftp-anon,ftp-bounce,ftp-libopie,ftp-proftpd-backdoor,ftp-vsftpd-backdoor,ftp-vuln-cve2010-4221 -oN {dirs}{ip_address}/service_scans/ftp_{ip_address}.nmap {ip_address}"
     ftp_results = subprocess.getoutput(FTPSCAN)
-    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with FTP-scan for {ip_address}")
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with FTP-scan for {ip_address}")
     write_to_file(ip_address, "ftp-connect", ftp_results)
     return
 
 
-def ldapEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting LDAP based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def ldap_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting LDAP based scan on {ip_address}:{port}")
     LDAPSCAN = f"nmap --script ldap* -p 389 {ip_address}-oN {dirs}{ip_address}/service_scans/ldap_{ip_address}.nmap {ip_address}"
-    #print(bcolors.HEADER + LDAPSCAN + bcolors.ENDC)
     ldap_results = subprocess.getoutput(LDAPSCAN)
-    print(bcolors.OKGREEN + "[*] Finished with LDAP-scan for " + ip_address + bcolors.ENDC)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with LDAP-scan for {ip_address}")
     write_to_file(ip_address, "ldap", ldap_results)
-    #print(results_ldap)
     return
 
 
-def kerbEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting KERBEROS basd scan on " + ip_address + ":" + port + bcolors.ENDC)
+def kerb_scan(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting KERBEROS basd scan on {ip_address}:{port}")
     KERBSCAN = f'DOM=$(nmap -p {port} --script krb5-enum-users {ip_address} | grep report | cut -d " " -f 5) && nmap -p {port} --script krb5-enum-users --script-args krb5-enum-users.realm=$DOM {ip_address} -oN {dirs}{ip_address}/service_scans/kerberos_{ip_address}.nmap {ip_address}'
-    #print(bcolors.HEADER + KERBSCAN + bcolors.ENDC)
     kerb_results = subprocess.getoutput(KERBSCAN)
-    print(bcolors.OKGREEN + "[*] Finished with KERBEROS-scan for " + ip_address + bcolors.ENDC)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with KERBEROS-scan for {ip_address}")
     write_to_file(ip_address, "kerb", kerb_results)
-    #print(results_kerb)
     return
 
 
 def nfs_scan(ip_address, port):
-    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting NFS based scan on {ip_address}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting NFS based scan on {ip_address}")
     SHOWMOUNT = f"showmount -e {ip_address} | tee {dirs}{ip_address}/service_scans/nfs_{ip_address}.nmap"
     nfsscan_results = subprocess.getoutput(SHOWMOUNT)
-    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with NFS-scan for {ip_address}")
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with NFS-scan for {ip_address}")
     write_to_file(ip_address, "nfsscan", nfsscan_results)
     return
 
@@ -384,13 +368,15 @@ def quick_hit_ssh(ip_address, port):
     return
 
 
-def __pop3Scan(ip_address, port):
+## don't think this is called anywhere
+def pop3Scan(ip_address, port):
     print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting POP3 scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "pop3")
     return
 
 
-def __nmap_vuln_scan(ip_address):
+## don't think this is called anywhere
+def nmap_vuln_scan(ip_address):
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Running Vulnerability based nmap scans for {ip_address}")
     VULN = f"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap"
     vuln_results = subprocess.getoutput(VULN)
@@ -543,7 +529,7 @@ def portScan(ip_address, unicornscan, resultQueue):
         elif "smtp" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(smtpEnum, ip_address, port)
+                multProc(smtp_scan, ip_address, port)
 
         elif "ftp" in serv:
             for port in ports:
@@ -553,14 +539,14 @@ def portScan(ip_address, unicornscan, resultQueue):
         elif "microsoft-ds" in serv or serv == "netbios-ssn":
             for port in ports:
                 port = port.split("/")[0]
-                multProc(smbEnum, ip_address, port)
-                multProc(rpcEnum, ip_address, port)
-                multProc(samrEnum, ip_address, port)
+                multProc(smb_scan, ip_address, port)
+                multProc(rpc_scan, ip_address, port)
+                multProc(samr_scan, ip_address, port)
 
         elif "ms-sql" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(mssqlEnum, ip_address, port)
+                multProc(mssql_scan, ip_address, port)
 
         elif "rpcbind" in serv:
             for port in ports:
@@ -575,12 +561,12 @@ def portScan(ip_address, unicornscan, resultQueue):
         elif "ldap" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(ldapEnum, ip_address, port)                
+                multProc(ldap_scan, ip_address, port)
 
         elif "kerberos-sec" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(kerbEnum, ip_address, port)   
+                multProc(kerb_scan, ip_address, port)
     return
 
 
