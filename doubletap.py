@@ -40,6 +40,18 @@ def multProc(targetin, scanip, port):
     p.start()
     return
 
+replace_keys = ["URLSTART", "IPADDRESS", "PORT", "DIRS"]
+
+scans = {
+    "gobuster":"gobuster dir -z -u URLSTART://IPADDRESS:PORT -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a DIRSIPADRESS/webapp_scans/dirb-IPADDRESS.txt",
+    "gobuster_ssl":"gobuster dir -z -u URLSTART://IPADDRESS:PORT -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a DIRSIPADDRESS/webapp_scans/dirb-IPADDRESS.txt",
+    "wig":"wig-git -t 20 -u URLSTART://IPADDRESS:PORT -q -d  | tee -a DIRSIPADDRESS/webapp_scans/wig-IPADDRESS.txt",
+    "parsero":"parsero-git -o -u URLSTART://IPADDRESS:PORT | grep OK | grep -o 'http.*'  | tee -a DIRSIPADDRESS/webapp_scans/dirb-IPADDRESS.txt",
+    "waf":"wafw00f URLSTART://IPADDRESS:PORT -a | tee -a DIRSIPADDRESS/webapp_scans/waf-IPADDRESS.txt",
+    "waf_ssl":"wafw00f URLSTART://IPADDRESS:PORT -a | tee -a DIRSIPADDRESS/webapp_scans/waf-IPADDRESS.txt",
+}
+
+
 
 # Identify the service running on the open port and
 # try basic auth attack. Service acts as a switch
@@ -210,6 +222,7 @@ def wig(ip_address, port, url_start):
 
 
 ## don't think this is called anywhere
+## it's exactly the same as fn wig
 def wigssl(ip_address, port, url_start):
     print(f"{bcolors.HEADER}[*] Starting WIGSSL scan for {ip_address}{bcolors.ENDC}")
     WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
