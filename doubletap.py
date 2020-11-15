@@ -170,29 +170,29 @@ def enumerate_http(ip_address, port, http: bool):
     url = f"{protocol}://{ip_address}:{port}/xxxxxxx"
     response = requests.get(url)
     if response.status_code == 404:  # could also check == requests.codes.ok
-        dirb_process = multiprocessing.Process(target=dirb, args=(ip_address, port, protocol))
-        dirb_process.start()
+        gobuster_process = multiprocessing.Process(target=gobuster, args=(ip_address, port, protocol))
+        gobuster_process.start()
 
     else:
         print(bcolors.WARNING + "[-] Response was not 404 on port " + port + ", skipping directory scans" + bcolors.ENDC)
 
     return
 
-def dirb(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting DIRB scan for {ip_address} : {port} {bcolors.ENDC}")
-    DIRBSCAN = f"gobuster dir -z -u {url_start}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
-    results_dirb = subprocess.getoutput(DIRBSCAN)
+def gobuster(ip_address, port, url_start):
+    print(f"{bcolors.HEADER}[*] Starting GOBUSTER scan for {ip_address} : {port} {bcolors.ENDC}")
+    DIRSCAN = f"gobuster dir -z -u {url_start}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
+    results_dir = subprocess.getoutput(DIRSCAN)
     print(f"{bcolors.OKGREEN}[*] Finished with DIRB-scan for {ip_address} {bcolors.ENDC}")
     #print(results_dirb)
-    write_to_file(ip_address, "dirb", results_dirb)
+    write_to_file(ip_address, "dirb", results_dir)
     return
 
 
-def dirbssl(ip_address, port, url_start):
-    print(f'{bcolors.HEADER}[*] Starting DIRBSSL scan for {ip_address} : {port} {bcolors.ENDC}')
+def gobuster_ssl(ip_address, port, url_start):
+    print(f'{bcolors.HEADER}[*]{bcolors.ENDC} Starting GOBUSTER SSL scan for {ip_address}:{port}')
     DIRBSCAN = f"gobuster dir -z -u {url_start}://{ip_address}:{port} -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
     results_dirb = subprocess.getoutput(DIRBSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with DIRBSSL-scan for {ip_address}{bcolors.ENDC}")
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with GOBUSTER SSL-scan for {ip_address}")
     #print(results_dirb)
     write_to_file(ip_address, "dirbssl", results_dirb)
     return
@@ -323,15 +323,14 @@ def samrEnum(ip_address, port):
     return
 
 
-def ftpEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting FTP based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def ftp_scan(ip_address, port):
+    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting FTP based scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "ftp")
+
     FTPSCAN = f"nmap -sV -Pn -vv -p {port} --script=ftp-anon,ftp-bounce,ftp-libopie,ftp-proftpd-backdoor,ftp-vsftpd-backdoor,ftp-vuln-cve2010-4221 -oN {dirs}{ip_address}/service_scans/ftp_{ip_address}.nmap {ip_address}"
-    #print(bcolors.HEADER + FTPSCAN + bcolors.ENDC)
     ftp_results = subprocess.getoutput(FTPSCAN)
-    print(bcolors.OKGREEN + "[*] Finished with FTP-scan for " + ip_address + bcolors.ENDC)
+    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with FTP-scan for {ip_address}")
     write_to_file(ip_address, "ftp-connect", ftp_results)
-    #print(results_ftp)
     return
 
 
@@ -357,42 +356,41 @@ def kerbEnum(ip_address, port):
     return
 
 
-def nfsEnum(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting NFS based scan on " + ip_address + bcolors.ENDC)
+def nfs_scan(ip_address, port):
+    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting NFS based scan on {ip_address}")
     SHOWMOUNT = f"showmount -e {ip_address} | tee {dirs}{ip_address}/service_scans/nfs_{ip_address}.nmap"
-    #print(bcolors.HEADER + SHOWMOUNT + bcolors.ENDC)
     nfsscan_results = subprocess.getoutput(SHOWMOUNT)
-    print(bcolors.OKGREEN + "[*] Finished with NFS-scan for " + ip_address + bcolors.ENDC)
-    #print(nfsscan_results)
+    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with NFS-scan for {ip_address}")
     write_to_file(ip_address, "nfsscan", nfsscan_results)
     return
 
 
-def sshScan(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting SSH based scan on " + ip_address + ":" + port + bcolors.ENDC)
+def ssh_scan(ip_address, port):
+    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting SSH based scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "ssh")
-    ssh_process = multiprocessing.Process(target=sshBrute, args=(ip_address, port))
+    ssh_process = multiprocessing.Process(target=quick_hit_ssh, args=(ip_address, port))
     ssh_process.start()
     return
 
 
-def sshBrute(ip_address, port):
-    print(bcolors.HEADER + "[*] Starting SSH Bruteforce on " + ip_address + ":" + port + bcolors.ENDC)
+# function to do a short brute force of ssh
+def quick_hit_ssh(ip_address, port):
+    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting SSH Bruteforce on {ip_address}:{port}")
     SSHSCAN = f"sudo hydra -I -C /opt/doubletap-git/wordlists/quick_hit.txt  -t 3 ssh://{ip_address} -s {port} | grep target"
-    results_ssh = subprocess.getoutput(SSHSCAN)  # 
-    print(bcolors.OKGREEN + "[*] Finished with SSH-Bruteforce check for " + ip_address + bcolors.ENDC)
+    results_ssh = subprocess.getoutput(SSHSCAN)
+    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SSH-Bruteforce check for {ip_address}:{port}")
     # print results_ssh
     write_to_file(ip_address, "sshscan", results_ssh)
     return
 
 
-def pop3Scan(ip_address, port):
+def __pop3Scan(ip_address, port):
     print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting POP3 scan on {ip_address}:{port}")
     connect_to_port(ip_address, port, "pop3")
     return
 
 
-def nmap_vuln_scan(ip_address):
+def __nmap_vuln_scan(ip_address):
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Running Vulnerability based nmap scans for {ip_address}")
     VULN = f"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap"
     vuln_results = subprocess.getoutput(VULN)
@@ -472,23 +470,27 @@ def vulnEnumForUni(ip_address: str ,ports: str):
     write_to_file(ip_address, "vulnscan", vuln_results)
     return
 
-#resultQueue = multiprocessing.Queue()
 # Starting funtion to parse and pipe to multiprocessing
 def portScan(ip_address, unicornscan, resultQueue):
     ip_address = ip_address.strip()
     print(f"\n{bcolors.OKGREEN}[*]{bcolors.ENDC} Current default output directory set as: '{dirs}'")
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Host IP set as: '{myip}'\n")
-   
+
+    ### Do the portscan!
     if(unicornscan):
         # do the full unicornscan stuff
         m = multiprocessing.Process(target=unicornTcpScan, args=(scanip,resultQueue,))
         m.start()
+
         # get unicornScan output tuple, queue is used in case we want to add udp scan as well
         tcp_output = resultQueue.get()
+
         # run targeted nmap on the open ports
         l = multiprocessing.Process(target=vulnEnumForUni, args=(scanip, tcp_output[1],))
         l.start()
+
         serv_dict = tcp_output[0]
+
     else:
         # use nmap top 1000 to generate quick list and do more complete scans
         l = multiprocessing.Process(target=partial_udp_scan, args=(scanip,))
@@ -511,71 +513,70 @@ def portScan(ip_address, unicornscan, resultQueue):
             ports = []
             line = line.strip()
             if ("tcp" in line) and ("open" in line) and not ("Discovered" in line):
-                # print line
                 while "  " in line:
                     line = line.replace("  ", " ");
                 linesplit = line.split(" ")
                 service = linesplit[2]  # grab the service name
 
                 port = line.split(" ")[0]  # grab the port/proto
-                # print port
                 if service in serv_dict:
                     ports = serv_dict[service]  # if the service is already in the dict, grab the port list
 
                 ports.append(port)
-                # print ports
                 serv_dict[service] = ports  # add service to the dictionary along with the associated port(2)
-                #print(bcolors.OKBLUE)
-                #print("Scanning the follwoing service scans:")
-                #print(bcolors.HEADER)
-                #print(serv_dict)
-                #print(bcolors.ENDC)
-                #print("Found the following ports open:\n" + ports)
 
     # Search through the service dictionary to call additional targeted enumeration functions
-    for serv in serv_dict:
-        ports = serv_dict[serv]
-        if (serv == "http") or (serv == "http-proxy") or (serv == "http-alt") or (serv == "http?") or (
-                serv == "http-proxy?"):
+    for (serv, ports) in serv_dict.items():
+       
+        # Do http scan
+        if serv == "http" or serv == "http-proxy" or serv == "http-alt" or serv == "http?" or serv == "http-proxy?":
             for port in ports:
                 port = port.split("/")[0]
                 multProc(enumerate_http, ip_address, port, true)
-                # multProc(httpEnum, ip_address, port)
+
+        # Do https scan
         elif (serv == "ssl/http") or ("https" == serv) or ("https?" == serv):
             for port in ports:
                 port = port.split("/")[0]
                 multProc(enumerate_http, ip_address, port, false)
-                # multProc(httpsEnum, ip_address, port)
+
         elif "smtp" in serv:
             for port in ports:
                 port = port.split("/")[0]
                 multProc(smtpEnum, ip_address, port)
+
         elif "ftp" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(ftpEnum, ip_address, port)
-        elif ("microsoft-ds" in serv) or ("netbios-ssn" == serv):
+                multProc(ftp_scan, ip_address, port)
+
+        elif "microsoft-ds" in serv or serv == "netbios-ssn":
             for port in ports:
                 port = port.split("/")[0]
                 multProc(smbEnum, ip_address, port)
                 multProc(rpcEnum, ip_address, port)
                 multProc(samrEnum, ip_address, port)
+
         elif "ms-sql" in serv:
             for port in ports:
                 port = port.split("/")[0]
                 multProc(mssqlEnum, ip_address, port)
+
         elif "rpcbind" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(nfsEnum, ip_address, port)
+                multProc(nfs_scan, ip_address, port)
+
         elif "ssh" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(sshScan, ip_address, port)
+                multProc(ssh_scan, ip_address, port)
+
         elif "ldap" in serv:
             for port in ports:
                 port = port.split("/")[0]
                 multProc(ldapEnum, ip_address, port)                
+
         elif "kerberos-sec" in serv:
             for port in ports:
                 port = port.split("/")[0]
@@ -583,7 +584,6 @@ def portScan(ip_address, unicornscan, resultQueue):
     return
 
 
-# PSA's
 print(bcolors.HEADER)
 print("------------------------------------------------------------")
 print("!!!!                     DOUBLETAP                     !!!!!")
@@ -593,6 +593,7 @@ print("!!!!            Automagically runs the following       !!!!!")
 print("!!!!     gobuster, nikto, ftp, ssh, mssql, pop3, tcp   !!!!!")
 print("!!!!           udp, smtp, smb, wig, hydra              !!!!!")
 print("------------------------------------------------------------")
+print(bcolors.ENDC)
 
 if not os.geteuid()==0:
     sys.exit('This script must be run with sudo!')
@@ -604,8 +605,6 @@ elif len(sys.argv) < 2:
     print("Host IP set as " + myip)
     print("")
     sys.exit()
-
-print(bcolors.ENDC)
 
 parser = argparse.ArgumentParser()
 
