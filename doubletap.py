@@ -40,12 +40,19 @@ def multProc(targetin, scanip, port):
     p.start()
     return
 
-# Functions for service specific connections.
+
+# Identify the service running on the open port and
+# try basic auth attack. Service acts as a switch
 def connect_to_port(ip_address, port, service):
+
+    # make a connection
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip_address, int(port)))
+
+    # get the banner from the port, we're going to assume the banner isn't tampered
     banner = s.recv(1024)
     banner = banner.decode("utf-8") #### change
+
     if service == "ftp":
         s.send("USER anonymous\r\n")
         user = s.recv(1024)
@@ -53,13 +60,15 @@ def connect_to_port(ip_address, port, service):
         password = s.recv(1024)
         total_communication = banner + "\r\n" + user + "\r\n" + password
         write_to_file(ip_address, "ftp-connect", total_communication)
+
     elif service == "smtp":
         total_communication = banner + "\r\n"
         write_to_file(ip_address, "smtp-connect", total_communication)
+
     elif service == "ssh":
         total_communication = banner
-        print("THIS SIS THE EFFING PROBLEM?_________________________________", banner)
         write_to_file(ip_address, "ssh-connect", total_communication)
+
     elif service == "pop3":
         s.send("USER root\r\n")
         user = s.recv(1024)
@@ -67,15 +76,19 @@ def connect_to_port(ip_address, port, service):
         password = s.recv(1024)
         total_communication = banner + user + password
         write_to_file(ip_address, "pop3-connect", total_communication)
-    s.close()
 
-# Functions for writing into templates
+    else:
+        print(bcolors.WARNING + "[-]" + bcolors.ENDC + " Port service not recognized, continuing")
+
+    s.close()  # close the connection
+
+# Functions for writing into premade markdown templates
 def write_to_file(ip_address: str, enum_type: str, data: int):
 
     file_path_linux = "%s%s/%s-linux-exploit-steps.md" % (dirs, ip_address, ip_address)
     file_path_windows = "%s%s/%s-windows-exploit-steps.md" % (dirs, ip_address, ip_address)
     paths = [file_path_linux, file_path_windows]
-    #print(bcolors.OKGREEN + "INFO: Writing " + enum_type + " to template files:\n" + file_path_linux + "   \n" + file_path_windows + bcolors.ENDC + "\n")
+    # print(bcolors.OKGREEN + "INFO: Writing " + enum_type + " to template files:\n" + file_path_linux + "   \n" + file_path_windows + bcolors.ENDC + "\n")
 
     for path in paths:
         #        if enum_type == "portscan":
@@ -131,22 +144,64 @@ def write_to_file(ip_address: str, enum_type: str, data: int):
     return
 
 
-def httpEnum(ip_address, port):
-    #print(bcolors.HEADER + "INFO: Detected http on " + ip_address + ":" + port + bcolors.ENDC)
-    #print(bcolors.HEADER + "INFO: Starting WEB app based scans for " + ip_address + ":" + port + bcolors.ENDC)
-    nikto_process = multiprocessing.Process(target=nikto, args=(ip_address, port, "http"))
+def enumerate_http(ip_address, port, http: bool):
+    protocol = "http"
+    if not http:
+        protocol = "https"
+
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Detected {protocol} on {ip_address}:{port}, starting webapp scans for {protocol}")
+
+    # nikto
+    nikto_process = multiprocessing.Process(target=nikto, args=(ip_address, port, protocol))
     nikto_process.start()
-    parsero_process = multiprocessing.Process(target=parsero, args=(ip_address, port, "http"))
+
+    # parsero
+    parsero_process = multiprocessing.Process(target=parsero, args=(ip_address, port, protocol))
     parsero_process.start()
-    wig_process = multiprocessing.Process(target=wig, args=(ip_address, port, "http"))
+
+    # wig
+    wig_process = multiprocessing.Process(target=wig, args=(ip_address, port, protocol))
     wig_process.start()
-    waf_process = multiprocessing.Process(target=waf, args=(ip_address, port, "http"))
+
+    # waf
+    waf_process = multiprocessing.Process(target=waf, args=(ip_address, port, protocol))
     waf_process.start()
+
     #print(bcolors.HEADER + "INFO: Checking for response on port " + port + bcolors.ENDC)
     url = "http://" + ip_address + ":" + port + "/xxxxxxx"
     response = requests.get(url)
-    #print("")
-    #print(response)
+    if response.status_code == 404:  # could also check == requests.codes.ok
+        #print(bcolors.HEADER + "INFO: Response was 404 on port " + port + ", perfoming directory scans" + bcolors.ENDC)
+        dirb_process = multiprocessing.Process(target=dirb, args=(ip_address, port, "http"))
+        dirb_process.start()
+    else:
+        print(bcolors.WARNING + "WARN: Response was not 404 on port " + port + ", skipping directory scans" + bcolors.ENDC)
+
+    return
+
+
+def httpEnum(ip_address, port):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Detected HTTP on {ip_address}:{port}, starting webapp scans for HTTP")
+
+    # nikto
+    nikto_process = multiprocessing.Process(target=nikto, args=(ip_address, port, "http"))
+    nikto_process.start()
+
+    # parsero
+    parsero_process = multiprocessing.Process(target=parsero, args=(ip_address, port, "http"))
+    parsero_process.start()
+
+    # wig
+    wig_process = multiprocessing.Process(target=wig, args=(ip_address, port, "http"))
+    wig_process.start()
+
+    # waf
+    waf_process = multiprocessing.Process(target=waf, args=(ip_address, port, "http"))
+    waf_process.start()
+   
+    #print(bcolors.HEADER + "INFO: Checking for response on port " + port + bcolors.ENDC)
+    url = "http://" + ip_address + ":" + port + "/xxxxxxx"
+    response = requests.get(url)
     if response.status_code == 404:  # could also check == requests.codes.ok
         #print(bcolors.HEADER + "INFO: Response was 404 on port " + port + ", perfoming directory scans" + bcolors.ENDC)
         dirb_process = multiprocessing.Process(target=dirb, args=(ip_address, port, "http"))
@@ -158,10 +213,13 @@ def httpEnum(ip_address, port):
 
 
 def httpsEnum(ip_address, port):
-    #print(bcolors.HEADER + "INFO: Detected https on " + ip_address + ":" + port + bcolors.ENDC)
-    #print(bcolors.HEADER + "INFO: Starting WEB based scans for " + ip_address + ":" + port + bcolors.ENDC)
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Detected HTTPS on {ip_address}:{port}, starting webapp scans for HTTPS")
+
+    # nikto
     nikto_process = multiprocessing.Process(target=nikto, args=(ip_address, port, "https"))
     nikto_process.start()
+
+
     parsero_process = multiprocessing.Process(target=parsero, args=(ip_address, port, "https"))
     parsero_process.start()
     ssl_process = multiprocessing.Process(target=ssl, args=(ip_address, port, "https"))
@@ -548,11 +606,13 @@ def portScan(ip_address, unicornscan, resultQueue):
                 serv == "http-proxy?"):
             for port in ports:
                 port = port.split("/")[0]
-                multProc(httpEnum, ip_address, port)
+                multProc(enumerate_http, ip_address, port, true)
+                # multProc(httpEnum, ip_address, port)
         elif (serv == "ssl/http") or ("https" == serv) or ("https?" == serv):
             for port in ports:
                 port = port.split("/")[0]
-                multProc(httpsEnum, ip_address, port)
+                multProc(enumerate_http, ip_address, port, false)
+                # multProc(httpsEnum, ip_address, port)
         elif "smtp" in serv:
             for port in ports:
                 port = port.split("/")[0]
