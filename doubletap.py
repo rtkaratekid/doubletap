@@ -147,6 +147,27 @@ def run_scan(scan_name: str, scan_command: str):
     write_scan_to_file(ip_address, scan_name, results)
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
+def run_scan_port(scan_name: str, scan_command: str, ports: str):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
+    results = subprocess.getoutput(scan_command)
+    write_scan_to_file(ip_address, scan_name, results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
+
+def run_scan_urlstart(scan_name: str, scan_command: str, urlstart: str):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
+    results = subprocess.getoutput(scan_command)
+    write_scan_to_file(ip_address, scan_name, results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
+
+def run_scan_port_urlstart(scan_name: str, scan_command: str, port: str, urlstart: str):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
+    results = subprocess.getoutput(scan_command)
+    write_scan_to_file(ip_address, scan_name, results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
+
 
 # Identify the service running on the open port and
 # try basic auth attack. Service acts as a switch
