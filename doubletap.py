@@ -40,17 +40,112 @@ def multProc(targetin, scanip, port):
     p.start()
     return
 
-replace_keys = ["URLSTART", "IPADDRESS", "PORT", "DIRS"]
+replace_keys = ["{urlstart}", "{ip_address}", "{port}", "{dirs}"]
+
+## Replace the target IP Address and Dirs
+## Further tailoring will be needed for things that need ports and urlstart
+def tailor_scans(scans: dict, ip_address: str, dirs: str)-> dict:
+    ret = {}
+    for (key, value) in scans.items():
+        temp = value.replace("{ip_address}", ip_address)
+        temp = temp.replace("{dirs}", dirs)
+        ret[key] = temp
+    return ret
 
 scans = {
-    "gobuster":"gobuster dir -z -u URLSTART://IPADDRESS:PORT -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a DIRSIPADRESS/webapp_scans/dirb-IPADDRESS.txt",
-    "gobuster_ssl":"gobuster dir -z -u URLSTART://IPADDRESS:PORT -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a DIRSIPADDRESS/webapp_scans/dirb-IPADDRESS.txt",
-    "wig":"wig-git -t 20 -u URLSTART://IPADDRESS:PORT -q -d  | tee -a DIRSIPADDRESS/webapp_scans/wig-IPADDRESS.txt",
-    "parsero":"parsero-git -o -u URLSTART://IPADDRESS:PORT | grep OK | grep -o 'http.*'  | tee -a DIRSIPADDRESS/webapp_scans/dirb-IPADDRESS.txt",
-    "waf":"wafw00f URLSTART://IPADDRESS:PORT -a | tee -a DIRSIPADDRESS/webapp_scans/waf-IPADDRESS.txt",
-    "waf_ssl":"wafw00f URLSTART://IPADDRESS:PORT -a | tee -a DIRSIPADDRESS/webapp_scans/waf-IPADDRESS.txt",
+    "gobuster":"gobuster dir -z -u {urlstart}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+    "gobuster_ssl":"gobuster dir -z -u {urlstart}://{ip_address}:{port} -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+    "wig":"wig-git -t 20 -u {urlstart}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt",
+    "wig_ssl":"wig-git -t 20 -u {urlstart}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt",
+    "parsero":"parsero-git -o -u {urlstart}://{ip_address}:{port} | grep OK | grep -o 'http.*'  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+    "waf":"wafw00f {urlstart}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt",
+    "waf_ssl":"wafw00f {urlstart}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt",
+    "nikto":"nikto -maxtime 5m -h {url_start}://{ip_address}:{port} | tee -a {dirs}{ip_address}/webapp_scans/nikto-{url_start}-{ip_address}.txt",
+    "ssl_scan":"sslscan {ip_address}:{port}  |  tee {dirs}{ip_address}/webapp_scans/ssl_scan_{ip_address}",
+    "mssql_scan":"nmap -sV -Pn -p {port} --script=ms-sql-info,ms-sql-config,ms-sql-dump-hashes --script-args=mssql.instance-port=1433,smsql.username-sa,mssql.password-sa -oN {dirs}{ip_address}/service_scans/mssql_{ip_address}.nmap",
+    "smtp_scan":"nmap -sV -Pn -p {port} --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 {ip_address} -oN {dirs}{ip_address}/service_scans/smtp_{ip_address}.nmap",
+    "smb_scan":"smbmap -H {ip_address} | tee {dirs}{ip_address}/service_scans/smbmap_{ip_address}",
+    "rpc_scan":"enum4linux -a {ip_address}  | tee {dirs}{ip_address}/service_scans/rpcmap_{ip_address}",
+    "samr_scan":"impacket-samrdump {ip_address} | tee {dirs}{ip_address}/service_scans/samrdump_{ip_address}",
+    "ftp_scan":"nmap -sV -Pn -vv -p {port} --script=ftp-anon,ftp-bounce,ftp-libopie,ftp-proftpd-backdoor,ftp-vsftpd-backdoor,ftp-vuln-cve2010-4221 -oN {dirs}{ip_address}/service_scans/ftp_{ip_address}.nmap {ip_address}",
+    "ldap_scan":"nmap --script ldap* -p 389 {ip_address}-oN {dirs}{ip_address}/service_scans/ldap_{ip_address}.nmap {ip_address}",
+    "kerb_scan":'DOM=$(nmap -p {port} --script krb5-enum-users {ip_address} | grep report | cut -d " " -f 5) && nmap -p {port} --script krb5-enum-users --script-args krb5-enum-users.realm=$DOM {ip_address} -oN {dirs}{ip_address}/service_scans/kerberos_{ip_address}.nmap {ip_address}',
+    "nfs_scan":"showmount -e {ip_address} | tee {dirs}{ip_address}/service_scans/nfs_{ip_address}.nmap",
+    "quick_hit_ssh":"sudo hydra -I -C /opt/doubletap-git/wordlists/quick_hit.txt  -t 3 ssh://{ip_address} -s {port} | grep target",
+    "nmap_vuln_scan":"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap",
+    "full_tcp_scan":"nmap -sV -Pn -p1-65535 --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 {ip_address} | tee {dirs}{ip_address}/port_scans/fulltcp_{ip_address}.nmap",
+    "partial_udp_scan":"sudo nmap -Pn -A -sC -sU -T 4 --top-ports 20 -oN {dirs}{ip_address}/port_scans/udp_{ip_address}.nmap {ip_address}",
+    "unicornscan_full_tcp":"sudo unicornscan -mT {ip_address}:a | tee {ip_address}{dirs}/port_scans/fulltcp_{ip_address}.uni"
 }
 
+# Functions for writing into premade markdown templates
+# TODO: change the markdown files such that you can use use the scan names listed above as the keys to replace text.
+# This will dramatically reduce the size of this function
+def write_scan_to_file(ip_address: str, enum_type: str, data: int):
+
+    file_path_linux = f"{dirs}{ip_address}/{ip_address}-linux-exploit-steps.md"
+    file_path_windows = f"{dirs}{ip_address}/{ip_address}-windows-exploit-steps.md"
+    paths = [file_path_linux, file_path_windows]
+
+    for path in paths:
+        #        if enum_type == "portscan":
+        #            subprocess.getoutput("replace INSERTTCPSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "gobuster":
+            subprocess.getoutput("replace INSERTDIRBSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "gobuster_ssl":
+            subprocess.getoutput("replace INSERTDIRBSSLSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "wig":
+            subprocess.getoutput("replace INSERTWIGSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "wig_ssl":
+            subprocess.getoutput("replace INSERTWIGSSLSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "parsero":
+            subprocess.getoutput("replace INSERTROBOTS \"" + data + "\"  -- " + path)
+        if enum_type == "waf":
+            subprocess.getoutput("replace INSERTWAFSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "wafssl":
+            subprocess.getoutput("replace INSERTWAFSSLSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "nikto":
+            subprocess.getoutput("replace INSERTNIKTOSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "ssl_scan":
+            subprocess.getoutput("replace INSERTSSLSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "smtp_scan":
+            subprocess.getoutput("replace INSERTSMTPCONNECT \"" + data + "\"  -- " + path)
+        if enum_type == "smb_scan":
+            subprocess.getoutput("replace INSERTSMBMAP \"" + data + "\"  -- " + path)
+        if enum_type == "rpc_scan":
+            subprocess.getoutput("replace INSERTRPCMAP \"" + data + "\"  -- " + path)
+        if enum_type == "samr_scan":
+            subprocess.getoutput("replace INSERTSAMRDUMP \"" + data + "\"  -- " + path)
+        if enum_type == "ftp_scan":
+            subprocess.getoutput("replace INSERTFTPTEST \"" + data + "\"  -- " + path)
+        if enum_type == "ldap_scan":
+            subprocess.getoutput("replace INSERTLDAPSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "kerb_scan":
+            subprocess.getoutput("replace INSERTKERBSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "nfs_scan":
+            subprocess.getoutput("replace INSERTNFSSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "quick_hit_ssh":
+            subprocess.getoutput("replace INSERTSSHBRUTE \"" + str(data) + "\"  -- " + path)
+        if enum_type == "nmap_vuln_scan":
+            subprocess.getoutput("replace INSERTVULNSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "full_tcp_scan":
+            subprocess.getoutput("replace INSERTFULLTCPSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "partial_udp_scan":
+            subprocess.getoutput("replace INSERTUDPSCAN \"" + data + "\"  -- " + path)
+        if enum_type == "ssh-connect":
+            subprocess.getoutput("replace INSERTSSHCONNECT \"" + data + "\"  -- " + path)
+        if enum_type == "pop3-connect":
+            subprocess.getoutput("replace INSERTPOP3CONNECT \"" + data + "\"  -- " + path)
+        if enum_type == "curl":
+            subprocess.getoutput("replace INSERTCURLHEADER \"" + data + "\"  -- " + path)
+    return
+
+def run_scan(scan_name: str, scan_command: str):
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
+    results = subprocess.getoutput(scan_command)
+    write_scan_to_file(ip_address, scan_name, results)
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
 
 # Identify the service running on the open port and
@@ -94,68 +189,6 @@ def connect_to_port(ip_address, port, service):
 
     s.close()  # close the connection
 
-# Functions for writing into premade markdown templates
-def write_to_file(ip_address: str, enum_type: str, data: int):
-
-    file_path_linux = "%s%s/%s-linux-exploit-steps.md" % (dirs, ip_address, ip_address)
-    file_path_windows = "%s%s/%s-windows-exploit-steps.md" % (dirs, ip_address, ip_address)
-    paths = [file_path_linux, file_path_windows]
-    # print(bcolors.OKGREEN + "[*] Writing " + enum_type + " to template files:\n" + file_path_linux + "   \n" + file_path_windows + bcolors.ENDC + "\n")
-
-    for path in paths:
-        #        if enum_type == "portscan":
-        #            subprocess.getoutput("replace INSERTTCPSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "dirb":
-            subprocess.getoutput("replace INSERTDIRBSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "dirbssl":
-            subprocess.getoutput("replace INSERTDIRBSSLSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "nikto":
-            subprocess.getoutput("replace INSERTNIKTOSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "ftp-connect":
-            subprocess.getoutput("replace INSERTFTPTEST \"" + data + "\"  -- " + path)
-        if enum_type == "smtp-connect":
-            subprocess.getoutput("replace INSERTSMTPCONNECT \"" + data + "\"  -- " + path)
-        if enum_type == "ssh-connect":
-            subprocess.getoutput("replace INSERTSSHCONNECT \"" + data + "\"  -- " + path)
-        if enum_type == "pop3-connect":
-            subprocess.getoutput("replace INSERTPOP3CONNECT \"" + data + "\"  -- " + path)
-        if enum_type == "curl":
-            subprocess.getoutput("replace INSERTCURLHEADER \"" + data + "\"  -- " + path)
-        if enum_type == "wig":
-            subprocess.getoutput("replace INSERTWIGSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "wigssl":
-            subprocess.getoutput("replace INSERTWIGSSLSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "smbmap":
-            subprocess.getoutput("replace INSERTSMBMAP \"" + data + "\"  -- " + path)
-        if enum_type == "rpcmap":
-            subprocess.getoutput("replace INSERTRPCMAP \"" + data + "\"  -- " + path)
-        if enum_type == "samrdump":
-            subprocess.getoutput("replace INSERTSAMRDUMP \"" + data + "\"  -- " + path)
-        if enum_type == "vulnscan":
-            subprocess.getoutput("replace INSERTVULNSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "nfsscan":
-            subprocess.getoutput("replace INSERTNFSSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "ssl-scan":
-            subprocess.getoutput("replace INSERTSSLSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "parsero":
-            subprocess.getoutput("replace INSERTROBOTS \"" + data + "\"  -- " + path)
-        if enum_type == "sshscan":
-            subprocess.getoutput("replace INSERTSSHBRUTE \"" + str(data) + "\"  -- " + path)
-        if enum_type == "fulltcpscan":
-            subprocess.getoutput("replace INSERTFULLTCPSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "udpscan":
-            subprocess.getoutput("replace INSERTUDPSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "waf":
-            subprocess.getoutput("replace INSERTWAFSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "wafssl":
-            subprocess.getoutput("replace INSERTWAFSSLSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "ldap":
-            subprocess.getoutput("replace INSERTLDAPSCAN \"" + data + "\"  -- " + path)
-        if enum_type == "kerb":
-            subprocess.getoutput("replace INSERTKERBSCAN \"" + data + "\"  -- " + path)
-    return
-
-
 def enumerate_http(ip_address, port, http: bool):
     protocol = "http"
     if not http:
@@ -188,236 +221,6 @@ def enumerate_http(ip_address, port, http: bool):
     else:
         print(bcolors.WARNING + "[-] Response was not 404 on port " + port + ", skipping directory scans" + bcolors.ENDC)
 
-    return
-
-def gobuster(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting GOBUSTER scan for {ip_address} : {port} {bcolors.ENDC}")
-    DIRSCAN = f"gobuster dir -z -u {url_start}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
-    results_dir = subprocess.getoutput(DIRSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with DIRB-scan for {ip_address} {bcolors.ENDC}")
-    #print(results_dirb)
-    write_to_file(ip_address, "dirb", results_dir)
-    return
-
-
-def gobuster_ssl(ip_address, port, url_start):
-    print(f'{bcolors.HEADER}[*]{bcolors.ENDC} Starting GOBUSTER SSL scan for {ip_address}:{port}')
-    DIRBSCAN = f"gobuster dir -z -u {url_start}://{ip_address}:{port} -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
-    results_dirb = subprocess.getoutput(DIRBSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with GOBUSTER SSL-scan for {ip_address}")
-    #print(results_dirb)
-    write_to_file(ip_address, "dirbssl", results_dirb)
-    return
-
-
-## don't think this is called anywhere
-def wig(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting WIG scan for {ip_address}{bcolors.ENDC}")
-    WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
-    results_wig = subprocess.getoutput(WIGSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with WIG-scan for {ip_address}{bcolors.ENDC}")
-    #print(results_wig)
-    write_to_file(ip_address, "wig", results_wig)
-    return
-
-
-## don't think this is called anywhere
-## it's exactly the same as fn wig
-def wigssl(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting WIGSSL scan for {ip_address}{bcolors.ENDC}")
-    WIGSCAN = f"wig-git -t 20 -u {url_start}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt"
-    results_wig = subprocess.getoutput(WIGSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with WIGSSL-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "wigssl", results_wig)
-    return
-
-
-## don't think this is called anywhere
-def parsero(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting ROBOTS scan for {ip_address}{bcolors.ENDC}")
-    ROBOTSSCAN = f"parsero-git -o -u {url_start}://{ip_address}:{port} | grep OK | grep -o 'http.*'  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt"
-    results_parsero = subprocess.getoutput(ROBOTSSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with ROBOTS-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "parsero", results_parsero)
-    return
-
-
-def waf(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting WAF scan for {ip_address}{bcolors.ENDC}")
-    WAFSCAN = f"wafw00f {url_start}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt"
-    results_waf = subprocess.getoutput(WAFSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with WAF-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "waf", results_waf)
-    return
-
-
-def wafssl(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting WAFSSL scan for {ip_address}{bcolors.ENDC}")
-    WAFSSLSCAN = f"wafw00f {url_start}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt"
-    results_wafssl = subprocess.getoutput(WAFSSLSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with WAFSSL-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "wafssl", results_wafssl)
-    return
-
-
-def nikto(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting NIKTO scan for {ip_address}{bcolors.ENDC}")
-    NIKTOSCAN = f"nikto -maxtime 5m -h {url_start}://{ip_address}:{port} | tee -a {dirs}{ip_address}/webapp_scans/nikto-{url_start}-{ip_address}.txt"
-    results_nikto = subprocess.getoutput(NIKTOSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with NIKTO-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "nikto", results_nikto)
-    return
-
-
-## don't think this is called anywhere
-def ssl(ip_address, port, url_start):
-    print(f"{bcolors.HEADER}[*] Starting SSL scan for {ip_address}{bcolors.ENDC}")
-    SSLSCAN = f"sslscan {ip_address}:{port}  |  tee {dirs}{ip_address}/webapp_scans/ssl_scan_{ip_address}"
-    results_ssl = subprocess.getoutput(SSLSCAN)
-    print(f"{bcolors.OKGREEN}[*] Finished with SSL-scan for {ip_address}{bcolors.ENDC}")
-    write_to_file(ip_address, "ssl-scan", results_ssl)
-    return
-
-
-def mssql_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting MSSQL based scan for {ip_address}:{port}")
-    MSSQLSCAN = f"nmap -sV -Pn -p {port} --script=ms-sql-info,ms-sql-config,ms-sql-dump-hashes --script-args=mssql.instance-port=1433,smsql.username-sa,mssql.password-sa -oN {dirs}{ip_address}/service_scans/mssql_{ip_address}.nmap %s"
-    mssql_results = subprocess.getoutput(MSSQLSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with MSSQL-scan for {ip_address}")
-    return
-
-
-def smtp_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SMTP based scan on {ip_address}:{port}")
-    connect_to_port(ip_address, port, "smtp")
-    SMTPSCAN = f"nmap -sV -Pn -p {port} --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 {ip_address} -oN {dirs}{ip_address}/service_scans/smtp_{ip_address}.nmap"
-    smtp_results = subprocess.getoutput(SMTPSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SMTP-scan for {ip_address}")
-    write_to_file(ip_address, "smtp-connect", smtp_results)
-    return
-
-
-def smb_scan(ip_address, port):
-    #print(bcolors.HEADER + "[*] Detected SMB on " + ip_address + ":" + port)
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SMB based scans for {ip_address}:{port}")
-    SMBMAP = f"smbmap -H {ip_address} | tee {dirs}{ip_address}/service_scans/smbmap_{ip_address}"
-    smbmap_results = subprocess.getoutput(SMBMAP)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SMBMap-scan for {ip_address}")
-    #print(smbmap_results)
-    write_to_file(ip_address, "smbmap", smbmap_results)
-    return
-
-
-def rpc_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting RPC based scan on {ip_address}:{port}")
-    RPCMAP = f"enum4linux -a {ip_address}  | tee {dirs}{ip_address}/service_scans/rpcmap_{ip_address}"
-    rpcmap_results = subprocess.getoutput(RPCMAP)
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Finished with RPC-scan for {ip_address}")
-    write_to_file(ip_address, "rpcmap", rpcmap_results)
-    return
-
-
-def samr_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting SAMR based scan on {ip_address}:port")
-    SAMRDUMP = f"impacket-samrdump {ip_address} | tee {dirs}{ip_address}/service_scans/samrdump_{ip_address}"
-    samrdump_results = subprocess.getoutput(SAMRDUMP)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SAMR-scan for {ip_address}")
-    write_to_file(ip_address, "samrdump", samrdump_results)
-    return
-
-
-def ftp_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting FTP based scan on {ip_address}:{port}")
-    connect_to_port(ip_address, port, "ftp")
-
-    FTPSCAN = f"nmap -sV -Pn -vv -p {port} --script=ftp-anon,ftp-bounce,ftp-libopie,ftp-proftpd-backdoor,ftp-vsftpd-backdoor,ftp-vuln-cve2010-4221 -oN {dirs}{ip_address}/service_scans/ftp_{ip_address}.nmap {ip_address}"
-    ftp_results = subprocess.getoutput(FTPSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with FTP-scan for {ip_address}")
-    write_to_file(ip_address, "ftp-connect", ftp_results)
-    return
-
-
-def ldap_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting LDAP based scan on {ip_address}:{port}")
-    LDAPSCAN = f"nmap --script ldap* -p 389 {ip_address}-oN {dirs}{ip_address}/service_scans/ldap_{ip_address}.nmap {ip_address}"
-    ldap_results = subprocess.getoutput(LDAPSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with LDAP-scan for {ip_address}")
-    write_to_file(ip_address, "ldap", ldap_results)
-    return
-
-
-def kerb_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting KERBEROS basd scan on {ip_address}:{port}")
-    KERBSCAN = f'DOM=$(nmap -p {port} --script krb5-enum-users {ip_address} | grep report | cut -d " " -f 5) && nmap -p {port} --script krb5-enum-users --script-args krb5-enum-users.realm=$DOM {ip_address} -oN {dirs}{ip_address}/service_scans/kerberos_{ip_address}.nmap {ip_address}'
-    kerb_results = subprocess.getoutput(KERBSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with KERBEROS-scan for {ip_address}")
-    write_to_file(ip_address, "kerb", kerb_results)
-    return
-
-
-def nfs_scan(ip_address, port):
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting NFS based scan on {ip_address}")
-    SHOWMOUNT = f"showmount -e {ip_address} | tee {dirs}{ip_address}/service_scans/nfs_{ip_address}.nmap"
-    nfsscan_results = subprocess.getoutput(SHOWMOUNT)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with NFS-scan for {ip_address}")
-    write_to_file(ip_address, "nfsscan", nfsscan_results)
-    return
-
-
-def ssh_scan(ip_address, port):
-    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting SSH based scan on {ip_address}:{port}")
-    connect_to_port(ip_address, port, "ssh")
-    ssh_process = multiprocessing.Process(target=quick_hit_ssh, args=(ip_address, port))
-    ssh_process.start()
-    return
-
-
-# function to do a short brute force of ssh
-def quick_hit_ssh(ip_address, port):
-    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting SSH Bruteforce on {ip_address}:{port}")
-    SSHSCAN = f"sudo hydra -I -C /opt/doubletap-git/wordlists/quick_hit.txt  -t 3 ssh://{ip_address} -s {port} | grep target"
-    results_ssh = subprocess.getoutput(SSHSCAN)
-    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with SSH-Bruteforce check for {ip_address}:{port}")
-    # print results_ssh
-    write_to_file(ip_address, "sshscan", results_ssh)
-    return
-
-
-## don't think this is called anywhere
-def pop3Scan(ip_address, port):
-    print("{bcolors.HEADER}[*]{bcolors.ENDC} Starting POP3 scan on {ip_address}:{port}")
-    connect_to_port(ip_address, port, "pop3")
-    return
-
-
-## don't think this is called anywhere
-def nmap_vuln_scan(ip_address):
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Running Vulnerability based nmap scans for {ip_address}")
-    VULN = f"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap"
-    vuln_results = subprocess.getoutput(VULN)
-    print("{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with VULN-scan for {ip_address}")
-    #print(vuln_results)
-    write_to_file(ip_address, "vulnscan", vuln_results)
-    return
-
-
-def full_tcp_scan(ip_address):
-    print(f"{bcolors.OKBLUE}[*]{bcolors.ENDC} Running FULL TCP nmap scan on '{ip_address}'")
-    TCPALL = f"nmap -sV -Pn -p1-65535 --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 {ip_address} | tee {dirs}{ip_address}/port_scans/fulltcp_{ip_address}.nmap"
-    tcp_results = subprocess.getoutput(TCPALL)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with FULL-TCP-scan for {ip_address}")
-    print(tcp_results)
-    write_to_file(ip_address, "fulltcpscan", tcp_results)
-    return
-
-
-def partial_udp_scan(ip_address):
-    print(f"{bcolors.OKBLUE}[*]{bcolors.ENDC} Running UDP nmap scan on {ip_address}")
-    UDPSCAN = f"sudo nmap -Pn -A -sC -sU -T 4 --top-ports 20 -oN {dirs}{ip_address}/port_scans/udp_{ip_address}.nmap {ip_address}"
-    udpscan_results = subprocess.getoutput(UDPSCAN)
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with UDP-scan for {ip_address}")
-    print(udpscan_results)
-    write_to_file(ip_address, "udpscan", udpscan_results)
     return
 
 # takes output directly from unicornscan
@@ -472,7 +275,7 @@ def vulnEnumForUni(ip_address: str ,ports: str):
     return
 
 # Starting funtion to parse and pipe to multiprocessing
-def portScan(ip_address, unicornscan, resultQueue):
+def portScan(ip_address, unicornscan, resultQueue, custom_scans):
     ip_address = ip_address.strip()
     print(f"\n{bcolors.OKGREEN}[*]{bcolors.ENDC} Current default output directory set as: '{dirs}'")
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Host IP set as: '{myip}'\n")
@@ -584,6 +387,27 @@ def portScan(ip_address, unicornscan, resultQueue):
                 multProc(kerb_scan, ip_address, port)
     return
 
+def setup_target_directory(dirs, scanip, myip):
+    print(f"{bcolors.WARNING}[-]{bcolors.ENDC} No folder was found for '{scanip}'. Setting up folder: {dirs}{scanip}")
+    subprocess.getoutput("mkdir " + dirs + scanip)
+    subprocess.getoutput("mkdir " + dirs + scanip + "/exploits")
+    subprocess.getoutput("mkdir " + dirs + scanip + "/privesc")
+    subprocess.getoutput("mkdir " + dirs + scanip + "/service_scans")
+    subprocess.getoutput("mkdir " + dirs + scanip + "/webapp_scans")
+    subprocess.getoutput("mkdir " + dirs + scanip + "/port_scans")
+
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Folder created here: '{dirs}{scanip}'")
+    subprocess.getoutput("cp /opt/doubletap-git/templates/windows-template.md " + dirs + scanip + "/" + scanip + "-windows-exploit-steps.md")
+    subprocess.getoutput("cp /opt/doubletap-git/templates/linux-template.md " + dirs + scanip + "/" + scanip + "-linux-exploit-steps.md")
+    subprocess.getoutput("cp /opt/doubletap-git/templates/windows-worksheet-template.md " + dirs + scanip + "/" + scanip + "-windows-notes.md")
+    subprocess.getoutput("cp /opt/doubletap-git/templates/linux-worksheet-template.md " + dirs + scanip + "/" + scanip + "-linux-notes.md")
+
+    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Added pentesting templates to: '{dirs}{scanip}'")
+    subprocess.getoutput(f"sed -i -e 's/INSERTIPADDRESS/{scanip}/g' {dirs}{scanip}/{scanip}-windows-exploit-steps.md")
+    subprocess.getoutput(f"sed -i -e 's/MYIPADDRESS/{myip}/g' {dirs}{scanip}/{scanip}-windows-exploit-steps.md")
+    subprocess.getoutput(f"sed -i -e 's/INSERTIPADDRESS/{scanip}/g' {dirs}{scanip}/{scanip}-linux-exploit-steps.md")
+    subprocess.getoutput(f"sed -i -e 's/MYIPADDRESS/{myip}/g' {dirs}{scanip}/{scanip}-linux-exploit-steps.md")
+
 
 print(bcolors.HEADER)
 print("------------------------------------------------------------")
@@ -615,7 +439,6 @@ parser.add_argument("-u", "--unicorn", dest = "unicorn", action="store_true", he
 parser.add_argument("-o", "--output",dest ="output", help="absolute filepath to output dir")
 parser.add_argument("-i", "--interface",dest = "interface", help="interface to use, default is eth0")
 
-
 args = parser.parse_args()
 
 if args.output:
@@ -633,28 +456,6 @@ if args.unicorn:
 else:
     unicorn = False
 
-
-def setup_target_directory(dirs, scanip, myip):
-    print(f"{bcolors.WARNING}[-]{bcolors.ENDC} No folder was found for '{scanip}'. Setting up folder: {dirs}{scanip}")
-    subprocess.getoutput("mkdir " + dirs + scanip)
-    subprocess.getoutput("mkdir " + dirs + scanip + "/exploits")
-    subprocess.getoutput("mkdir " + dirs + scanip + "/privesc")
-    subprocess.getoutput("mkdir " + dirs + scanip + "/service_scans")
-    subprocess.getoutput("mkdir " + dirs + scanip + "/webapp_scans")
-    subprocess.getoutput("mkdir " + dirs + scanip + "/port_scans")
-
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Folder created here: '{dirs}{scanip}'")
-    subprocess.getoutput("cp /opt/doubletap-git/templates/windows-template.md " + dirs + scanip + "/" + scanip + "-windows-exploit-steps.md")
-    subprocess.getoutput("cp /opt/doubletap-git/templates/linux-template.md " + dirs + scanip + "/" + scanip + "-linux-exploit-steps.md")
-    subprocess.getoutput("cp /opt/doubletap-git/templates/windows-worksheet-template.md " + dirs + scanip + "/" + scanip + "-windows-notes.md")
-    subprocess.getoutput("cp /opt/doubletap-git/templates/linux-worksheet-template.md " + dirs + scanip + "/" + scanip + "-linux-notes.md")
-
-    print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Added pentesting templates to: '{dirs}{scanip}'")
-    subprocess.getoutput(f"sed -i -e 's/INSERTIPADDRESS/{scanip}/g' {dirs}{scanip}/{scanip}-windows-exploit-steps.md")
-    subprocess.getoutput(f"sed -i -e 's/MYIPADDRESS/{myip}/g' {dirs}{scanip}/{scanip}-windows-exploit-steps.md")
-    subprocess.getoutput(f"sed -i -e 's/INSERTIPADDRESS/{scanip}/g' {dirs}{scanip}/{scanip}-linux-exploit-steps.md")
-    subprocess.getoutput(f"sed -i -e 's/MYIPADDRESS/{myip}/g' {dirs}{scanip}/{scanip}-linux-exploit-steps.md")
-
 if __name__ == '__main__':
     #multiprocessing.log_to_stderr(logging.DEBUG)
 
@@ -667,6 +468,8 @@ if __name__ == '__main__':
         if not scanip in subprocess.getoutput(f"ls {dirs}"):
             setup_target_directory(dirs, scanip, myip)
 
-        p = multiprocessing.Process(target=portScan, args=(scanip,unicorn,resultQueue))
+        custom_scans = tailor_scans(scans)
+
+        p = multiprocessing.Process(target=portScan, args=(scanip,unicorn,resultQueue,custom_scans))
         time.sleep(1)  # Just a nice wait for unicornscan
         p.start()
