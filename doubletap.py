@@ -35,7 +35,7 @@ class bcolors:
 # Creates a function for multiprocessing.
 def multProc(targetin, scanip, port):
     jobs = []
-    p = multiprocessing.Process(target=targetin, args=(scanip, port))
+    p = multiprocessing.Process(target=targetin, args=(scan_name, scan, port))
     jobs.append(p)
     p.start()
     return
@@ -44,7 +44,7 @@ replace_keys = ["{urlstart}", "{ip_address}", "{port}", "{dirs}"]
 
 ## Replace the target IP Address and Dirs
 ## Further tailoring will be needed for things that need ports and urlstart
-def tailor_scans(scans: dict, ip_address: str, dirs: str)-> dict:
+def set_scan_target_and_output(scans: dict, ip_address: str, dirs: str)-> dict:
     ret = {}
     for (key, value) in scans.items():
         temp = value.replace("{ip_address}", ip_address)
@@ -53,14 +53,6 @@ def tailor_scans(scans: dict, ip_address: str, dirs: str)-> dict:
     return ret
 
 scans = {
-    "gobuster":"gobuster dir -z -u {urlstart}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
-    "gobuster_ssl":"gobuster dir -z -u {urlstart}://{ip_address}:{port} -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
-    "wig":"wig-git -t 20 -u {urlstart}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt",
-    "wig_ssl":"wig-git -t 20 -u {urlstart}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt",
-    "parsero":"parsero-git -o -u {urlstart}://{ip_address}:{port} | grep OK | grep -o 'http.*'  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
-    "waf":"wafw00f {urlstart}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt",
-    "waf_ssl":"wafw00f {urlstart}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt",
-    "nikto":"nikto -maxtime 5m -h {url_start}://{ip_address}:{port} | tee -a {dirs}{ip_address}/webapp_scans/nikto-{url_start}-{ip_address}.txt",
     "ssl_scan":"sslscan {ip_address}:{port}  |  tee {dirs}{ip_address}/webapp_scans/ssl_scan_{ip_address}",
     "mssql_scan":"nmap -sV -Pn -p {port} --script=ms-sql-info,ms-sql-config,ms-sql-dump-hashes --script-args=mssql.instance-port=1433,smsql.username-sa,mssql.password-sa -oN {dirs}{ip_address}/service_scans/mssql_{ip_address}.nmap",
     "smtp_scan":"nmap -sV -Pn -p {port} --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 {ip_address} -oN {dirs}{ip_address}/service_scans/smtp_{ip_address}.nmap",
@@ -74,9 +66,11 @@ scans = {
     "quick_hit_ssh":"sudo hydra -I -C /opt/doubletap-git/wordlists/quick_hit.txt  -t 3 ssh://{ip_address} -s {port} | grep target",
     "nmap_vuln_scan":"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap",
     "full_tcp_scan":"nmap -sV -Pn -p1-65535 --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 {ip_address} | tee {dirs}{ip_address}/port_scans/fulltcp_{ip_address}.nmap",
+    "quick_tcp_scan":"nmap -sV -Pn --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 --top-ports 1000 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap",
     "partial_udp_scan":"sudo nmap -Pn -A -sC -sU -T 4 --top-ports 20 -oN {dirs}{ip_address}/port_scans/udp_{ip_address}.nmap {ip_address}",
     "unicornscan_full_tcp":"sudo unicornscan -mT {ip_address}:a | tee {ip_address}{dirs}/port_scans/fulltcp_{ip_address}.uni"
 }
+
 
 # Functions for writing into premade markdown templates
 # TODO: change the markdown files such that you can use use the scan names listed above as the keys to replace text.
@@ -147,24 +141,28 @@ def run_scan(scan_name: str, scan_command: str):
     write_scan_to_file(ip_address, scan_name, results)
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
-def run_scan_port(scan_name: str, scan_command: str, ports: str):
+def run_scan_port(scan_name: str, scan_command: str, port: str):
+    new_command = scan_command.replace("{port}", port)
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
-    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
-    results = subprocess.getoutput(scan_command)
+    print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{new_command}")
+    results = subprocess.getoutput(new_command)
     write_scan_to_file(ip_address, scan_name, results)
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
 def run_scan_urlstart(scan_name: str, scan_command: str, urlstart: str):
+    new_command = scan_command.replace("{urlstart}", urlstart)
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
-    results = subprocess.getoutput(scan_command)
+    results = subprocess.getoutput(new_command)
     write_scan_to_file(ip_address, scan_name, results)
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
 def run_scan_port_urlstart(scan_name: str, scan_command: str, port: str, urlstart: str):
+    new_command = scan_command.replace("{urlstart}", urlstart)
+    new_command = new_command.replace("{port}", port)
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Starting {scan_name} for {ip_address}")
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Full command:\n\t{scan_command}")
-    results = subprocess.getoutput(scan_command)
+    results = subprocess.getoutput(new_command)
     write_scan_to_file(ip_address, scan_name, results)
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Finished with {scan_name} for {ip_address}, wrote results to report")
 
@@ -210,6 +208,16 @@ def connect_to_port(ip_address, port, service):
 
     s.close()  # close the connection
 
+
+## helper for enumerate_http
+def set_port_and_protocol(scans: dict, port: str, protocol: str)-> dict:
+    ret = {}
+    for (key, value) in scans.items():
+        temp = value.replace("{port}", port)
+        temp = temp.replace("{protocol}", urlstart)
+        ret[key] = temp
+    return ret
+
 def enumerate_http(ip_address, port, http: bool):
     protocol = "http"
     if not http:
@@ -217,26 +225,26 @@ def enumerate_http(ip_address, port, http: bool):
 
     print(f"{bcolors.HEADER}[*]{bcolors.ENDC} Detected {protocol} on {ip_address}:{port}, starting webapp scans for {protocol}")
 
-    # nikto
-    nikto_process = multiprocessing.Process(target=nikto, args=(ip_address, port, protocol))
-    nikto_process.start()
+    http_scans = {
+        "gobuster":"gobuster dir -z -u {urlstart}://{ip_address}:{port} -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+        "gobuster_ssl":"gobuster dir -z -u https://{ip_address}:{port} -e -f -n -w /usr/share/wordlists/dirb/common.txt -P /opt/doubletap-git/wordlists/quick_hit.txt -U /opt/doubletap-git/wordlists/quick_hit.txt -t 20  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+        "nikto":"nikto -maxtime 5m -h {urlstart}://{ip_address}:{port} | tee -a {dirs}{ip_address}/webapp_scans/nikto-{urlstart}-{ip_address}.txt",
+        "parsero":"parsero-git -o -u {urlstart}://{ip_address}:{port} | grep OK | grep -o 'http.*'  | tee -a {dirs}{ip_address}/webapp_scans/dirb-{ip_address}.txt",
+        "wig":"wig-git -t 20 -u {urlstart}://{ip_address}:{port} -q -d  | tee -a {dirs}{ip_address}/webapp_scans/wig-{ip_address}.txt",
+        "waf":"wafw00f {urlstart}://{ip_address}:{port} -a | tee -a {dirs}{ip_address}/webapp_scans/waf-{ip_address}.txt"
+    }
 
-    # parsero
-    parsero_process = multiprocessing.Process(target=parsero, args=(ip_address, port, protocol))
-    parsero_process.start()
+    custom_http_scans = set_scan_target_and_output(http_scans, ip_address, dirs)
+    custom_http_scans = set_port_and_protocol(custom_scans, port, protocol)
 
-    # wig
-    wig_process = multiprocessing.Process(target=wig, args=(ip_address, port, protocol))
-    wig_process.start()
-
-    # waf
-    waf_process = multiprocessing.Process(target=waf, args=(ip_address, port, protocol))
-    waf_process.start()
+    for (key, value) in custom_http_scans.items():
+        process = multiprocessing.Process(target=run_scan, args=(key, value))
 
     url = f"{protocol}://{ip_address}:{port}/xxxxxxx"
     response = requests.get(url)
     if response.status_code == 404:  # could also check == requests.codes.ok
-        gobuster_process = multiprocessing.Process(target=gobuster, args=(ip_address, port, protocol))
+        gobuster_process = multiprocessing.Process(target=run_scan, args=("gobuster", custom_http_scans["gobuster"]))
+        gobuster_process = multiprocessing.Process(target=run_scan, args=("gobuster_ssl", custom_http_scans["gobuster_ssl"]))
         gobuster_process.start()
 
     else:
@@ -244,111 +252,43 @@ def enumerate_http(ip_address, port, http: bool):
 
     return
 
-# takes output directly from unicornscan
-# returns a dict of protocols and the port they run on
-def parse_unicornscan(result:str)->dict:
-    port_protocol = {}
-    lines = result.split("\n")
-    for line in lines:
-        ports = [];
-        port = 0;
-        protocol = "";
-        tokens = line.split(" ")
-        for t in tokens:
-            if "[" in t:
-                protocol = t.split("[")[0]
-            elif "]" in t:
-                port = int(t.split("]")[0])
-        if protocol in port_protocol:
-            # add to the list of ports in the dict
-            port_protocol[protocol].append(port)
-        else:
-            # initialize a list for that protocol
-            ports.append(port)
-            port_protocol[protocol] = ports
-
-    return port_protocol
-
-
-def unicornTcpScan(ip_address, q):
-    print(bcolors.OKGREEN + f"[*] Running Full Unicornscan on {ip_address}, this may take a few mintues" + bcolors.ENDC)
-    TCPALL = f"sudo unicornscan -mT {ip_address}:a | tee {ip_address}{dirs}/port_scans/fulltcp_{ip_address}.uni"
-    open_ports = subprocess.getoutput(TCPALL)
-    print(bcolors.OKGREEN + "[*] Finished with FULL-TCP-scan for " + ip_address + bcolors.ENDC)
-    #print(open_ports)
-    write_to_file(ip_address, "fulltcpscan", open_ports)
-    ports_dirty = ",".join(re.findall('\[(.*?)\]', open_ports))
-    clean_ports = ports_dirty.replace(' ', '')
-    q.put((parse_unicornscan(open_ports), clean_ports)) # returning a tuple for the two different purposes
-    return
-
-
-def vulnEnumForUni(ip_address: str ,ports: str):
-    if not ports.strip(" "):
-        print("{bcolors.FAIL}\nNo ports open for nmap vulnscan\n {bcolors.ENDC}") 
-        return
-    print(bcolors.OKGREEN + "[*] Running Vulnerability based nmap scans for " + ip_address + bcolors.ENDC)
-    VULN = f"nmap -sV --script=vuln --script-timeout=600 -p {ports} {ip_address} -oN {dirs}{ip_address}/port_scans/vuln_{ip_address}.nmap"
-    vuln_results = subprocess.getoutput(VULN)
-    print(bcolors.OKGREEN + "[*] Finished with VULN-scan for " + ip_address + bcolors.ENDC)
-    #print(vuln_results)
-    write_to_file(ip_address, "vulnscan", vuln_results)
-    return
-
 # Starting funtion to parse and pipe to multiprocessing
 def portScan(ip_address, unicornscan, resultQueue, custom_scans):
     ip_address = ip_address.strip()
     print(f"\n{bcolors.OKGREEN}[*]{bcolors.ENDC} Current default output directory set as: '{dirs}'")
     print(f"{bcolors.OKGREEN}[*]{bcolors.ENDC} Host IP set as: '{myip}'\n")
+   
+    # Do portscans
+    # use nmap top 1000 to generate quick list and do more complete scans
+    l = multiprocessing.Process(target=run_scan, args=("partial_udp_scan", custom_scans["partial_udp_scan"]))
+    l.start()
+    l = multiprocessing.Process(target=run_scan, args=("full_tcp_scan", custom_scans["full_tcp_scan"]))
+    m.start()
 
-    ### Do the portscan!
-    if(unicornscan):
-        # do the full unicornscan stuff
-        m = multiprocessing.Process(target=unicornTcpScan, args=(scanip,resultQueue,))
-        m.start()
+    print(f"{bcolors.HEADER}[*]{bcolors.ENC} Running Quick TCP nmap scans for: {ip_address}")
+    results = subprocess.getoutput(custom_scans["quick_tcp_scan"])
+    print(f"bcolors.OKGREEN[*]{bcolors.ENDC} Finished with QUICK-TCP-scans for {ip_address}. Starting secondary scans")
+    # TCPSCAN = f"nmap -sV -Pn -p1-65535 --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 --top-ports 1000 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap"
+    #TCPSCAN = f"nmap -sV -Pn -O --top-ports 100 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap"
 
-        # get unicornScan output tuple, queue is used in case we want to add udp scan as well
-        tcp_output = resultQueue.get()
+    #    write_to_file(ip_address, "portscan", results)
+    lines = results.split("\n")
+    serv_dict = {}
+    for line in lines:
+        ports = []
+        line = line.strip()
+        if ("tcp" in line) and ("open" in line) and not ("Discovered" in line):
+            while "  " in line:
+                line = line.replace("  ", " ");
+            linesplit = line.split(" ")
+            service = linesplit[2]  # grab the service name
 
-        # run targeted nmap on the open ports
-        l = multiprocessing.Process(target=vulnEnumForUni, args=(scanip, tcp_output[1],))
-        l.start()
+            port = line.split(" ")[0]  # grab the port/proto
+            if service in serv_dict:
+                ports = serv_dict[service]  # if the service is already in the dict, grab the port list
 
-        serv_dict = tcp_output[0]
-
-    else:
-        # use nmap top 1000 to generate quick list and do more complete scans
-        l = multiprocessing.Process(target=partial_udp_scan, args=(scanip,))
-        l.start()
-        m = multiprocessing.Process(target=full_tcp_scan, args=(scanip,))
-        m.start()
-        print(f"{bcolors.OKBLUE}[*]{bcolors.ENC} Running Quick TCP nmap scans for: {ip_address}")
-        TCPSCAN = f"nmap -sV -Pn --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 --top-ports 1000 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap"
-        # TCPSCAN = f"nmap -sV -Pn -p1-65535 --max-retries 1 --max-scan-delay 10 --defeat-rst-ratelimit --open -T4 --top-ports 1000 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap"
-        #TCPSCAN = f"nmap -sV -Pn -O --top-ports 100 {ip_address} -oN {dirs}{ip_address}/port_scans/{ip_address}.nmap"
-        results = subprocess.getoutput(TCPSCAN)
-        #print(results)      
-        print(bcolors.OKGREEN + "[*] Finished with QUICK-TCP-scans for " + ip_address + ". Starting secondary scans" + bcolors.ENDC)
-        #print(results)
-        
-        #    write_to_file(ip_address, "portscan", results)
-        lines = results.split("\n")
-        serv_dict = {}
-        for line in lines:
-            ports = []
-            line = line.strip()
-            if ("tcp" in line) and ("open" in line) and not ("Discovered" in line):
-                while "  " in line:
-                    line = line.replace("  ", " ");
-                linesplit = line.split(" ")
-                service = linesplit[2]  # grab the service name
-
-                port = line.split(" ")[0]  # grab the port/proto
-                if service in serv_dict:
-                    ports = serv_dict[service]  # if the service is already in the dict, grab the port list
-
-                ports.append(port)
-                serv_dict[service] = ports  # add service to the dictionary along with the associated port(2)
+            ports.append(port)
+            serv_dict[service] = ports  # add service to the dictionary along with the associated port(2)
 
     # Search through the service dictionary to call additional targeted enumeration functions
     for (serv, ports) in serv_dict.items():
@@ -368,44 +308,44 @@ def portScan(ip_address, unicornscan, resultQueue, custom_scans):
         elif "smtp" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(smtp_scan, ip_address, port)
+                multProc(run_scan_port, "smtp_scan", custom_scans["smtp_scan"], port)
 
         elif "ftp" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(ftp_scan, ip_address, port)
+                multProc(run_scan_port, "ftp_scan", custom_scans["ftp_scan"], port)
 
         elif "microsoft-ds" in serv or serv == "netbios-ssn":
             for port in ports:
                 port = port.split("/")[0]
-                multProc(smb_scan, ip_address, port)
-                multProc(rpc_scan, ip_address, port)
-                multProc(samr_scan, ip_address, port)
+                multProc(run_scan_port, "smb_scan", custom_scans["smb_scan"], port)
+                multProc(run_scan_port, "rpc_scan", custom_scans["rpc_scan"], port)
+                multProc(run_scan_port, "samr_scan", custom_scans["samr_scan"], port)
 
         elif "ms-sql" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(mssql_scan, ip_address, port)
+                multProc(run_scan_port, "mssql_scan", custom_scans["mssql_scan"], port)
 
         elif "rpcbind" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(nfs_scan, ip_address, port)
+                multProc(run_scan_port, "nfs_scan", custom_scans["nfs_scan"], port)
 
         elif "ssh" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(ssh_scan, ip_address, port)
+                multProc(run_scan_port, "ssh_scan", custom_scans["ssh_scan"], port)
 
         elif "ldap" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(ldap_scan, ip_address, port)
+                multProc(run_scan_port, "ldap_scan", custom_scans["ldap_scan"], port)
 
         elif "kerberos-sec" in serv:
             for port in ports:
                 port = port.split("/")[0]
-                multProc(kerb_scan, ip_address, port)
+                multProc(run_scan_port, "kerb_scan", custom_scans["kerb_scan"], port)
     return
 
 def setup_target_directory(dirs, scanip, myip):
@@ -489,7 +429,7 @@ if __name__ == '__main__':
         if not scanip in subprocess.getoutput(f"ls {dirs}"):
             setup_target_directory(dirs, scanip, myip)
 
-        custom_scans = tailor_scans(scans)
+        custom_scans = set_scan_target_and_output(scans)
 
         p = multiprocessing.Process(target=portScan, args=(scanip,unicorn,resultQueue,custom_scans))
         time.sleep(1)  # Just a nice wait for unicornscan
